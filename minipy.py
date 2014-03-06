@@ -825,7 +825,8 @@ class FindReserved(NodeVisitor):
         self.reserved.add(n)
         try:
             self.reserved.update(dir(load_module(n, *find_module(n))))
-        except:
+        except Exception as e:
+            print str(e)
             pass
 
     def visit_alias(self, node):
@@ -840,7 +841,9 @@ class FindReserved(NodeVisitor):
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
-        self.reserved.add(node.attr)
+        import re
+        if re.match(r'_[^_]+', node.attr) is None:
+            self.reserved.add(node.attr)
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -855,6 +858,12 @@ class FindReserved(NodeVisitor):
 
     def visit_ImportFrom(self, node):
         self.reserve_import(node.module)
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):
+        import re
+        if re.match(r'_[^_]+', node.name) is None:
+            self.reserved.add(node.name)
         self.generic_visit(node)
 
 def reserved_names_in_ast(tree):
@@ -907,6 +916,12 @@ class Rename(NodeTransformer):
 
     def visit_Name(self, node):
         node.id = self.rename(node.id)
+        return self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        import re
+        if re.match(r'_[^_]+', node.attr) is not None:
+            node.attr = self.rename(node.attr)
         return self.generic_visit(node)
 
 class FindNames(NodeVisitor):
@@ -965,6 +980,12 @@ class FindNames(NodeVisitor):
 
     def visit_Name(self, node):
         self.learn(node.id)
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        import re
+        if re.match(r'_[^_]+', node.attr) is not None:
+            self.learn(node.attr)
         self.generic_visit(node)
 
 letters = ascii_lowercase + ascii_uppercase
